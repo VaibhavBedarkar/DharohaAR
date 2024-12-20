@@ -44,8 +44,10 @@ import com.google.android.material.datepicker.MaterialDatePicker
 import java.util.Date
 import java.util.Locale
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Book
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.ImageSearch
 import androidx.compose.material.icons.filled.Logout
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.ui.Alignment
@@ -110,7 +112,10 @@ fun SplashScreen(onTimeout: () -> Unit) {
         )
     }
 }
-
+fun isValidEmail(email: String): Boolean {
+    val emailRegex = "[a-zA-Z0-9._-]+@[a-z]+\\.+[a-z]+"
+    return email.matches(emailRegex.toRegex())
+}
 @Composable
 fun AuthenticationScreen() {
     var isLogin by remember { mutableStateOf(true) }
@@ -124,6 +129,8 @@ fun AuthenticationScreen() {
     var loginSuccess by remember { mutableStateOf(false) }
     val visitorNationalities = listOf("Indian", "Foreigner", "SAARC", "BIMSTEC")
     var visitorNationality by remember { mutableStateOf("") }
+    var emailError by remember { mutableStateOf(false) }
+    val EMAIL_PATTERN = Regex("[^@]+@[^.]+\\.[^.]+")
     if (loginSuccess) {
        HomeScreen()
     } else {
@@ -162,16 +169,26 @@ fun AuthenticationScreen() {
                         selectedOption = visitorNationality,
                         onOptionSelected = { visitorNationality = it }
                     )
-
-
                 }
 
                 OutlinedTextField(
                     value = email,
-                    onValueChange = { email = it },
+                    onValueChange = {
+                        email = it
+                        emailError = !isValidEmail(it) // Validate email as user types
+                    },
                     label = { Text("Email") },
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
+                    isError = emailError // Highlight field in error state
                 )
+
+                if (emailError) {
+                    Text(
+                        text = "Invalid email address",
+                        color = Color.Red,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
 
                 OutlinedTextField(
                     value = password,
@@ -193,7 +210,7 @@ fun AuthenticationScreen() {
                 Button(
                     onClick = {
                         coroutineScope.launch {
-                            if (isLogin) {
+                           if (isLogin) {
                                 val success = performLogin(email, password)
                                 if (success) {
                                     loginSuccess = true
@@ -203,7 +220,7 @@ fun AuthenticationScreen() {
                                     snackbarHostState.showSnackbar("Login Failed")
                                 }
                             } else {
-                                performSignup(name, email, mobile, password)
+                                performSignup(name, email, visitorNationality,mobile, password)
                                 snackbarHostState.showSnackbar("Signup Successful, Please Login")
                             }
                         }
@@ -224,113 +241,149 @@ fun AuthenticationScreen() {
 }
 
 
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen() {
     val snackbarHostState = remember { SnackbarHostState() }
     val coroutineScope = rememberCoroutineScope()
-    val monumentNames = listOf("Taj Mahal", "Qutub Minar", "Red Fort", "Hawa Mahal")
-    val slots = listOf("Forenoon", "Afternoon", "Evening")
+    val monumentNames = remember { listOf("Taj Mahal", "Qutub Minar", "Red Fort", "Hawa Mahal") }
+    val slots = remember { listOf("Forenoon", "Afternoon", "Evening") }
 
     var monumentName by remember { mutableStateOf("") }
     var selectedDate by remember { mutableStateOf("") }
     var selectedSlot by remember { mutableStateOf("") }
-
     var showDatePicker by remember { mutableStateOf(false) }
+    var selectedMenu by remember { mutableStateOf(0) }
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
-        bottomBar = { BottomNavigationBar() } // Integrated into Scaffold's bottomBar
+        bottomBar = {
+            BottomNavigationBar(selectedMenu) { newIndex -> selectedMenu = newIndex }
+        }
     ) { innerPadding ->
-        Column(
-            modifier = Modifier
-                .padding(innerPadding)
-                .padding(16.dp)
-                .fillMaxSize(),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Top
-        ) {
-            // Header Image
-            Spacer(modifier = Modifier.height(8.dp))
-            Image(
-                painter = painterResource(id = R.drawable.monumentgraphic), // Replace with your image
-                contentDescription = "Colorful Monument Illustration",
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(200.dp)
-                    .clip(MaterialTheme.shapes.medium)
+        when (selectedMenu) {
+            0 -> HomeContent(
+                innerPadding,
+                monumentNames,
+                monumentName,
+                onMonumentSelected = { monumentName = it },
+                selectedDate,
+                onDateSelected = { selectedDate = it },
+                showDatePicker,
+                onDatePickerShow = { showDatePicker = it }
             )
-
-            Text(
-                text = "Experience just a few clicks away...!!",
-                fontSize = 22.sp,
-                fontFamily = FontFamily.Cursive,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-            CustomDropdownField(
-                label = "Select Monument",
-                options = monumentNames,
-                selectedOption = monumentName,
-                onOptionSelected = { monumentName = it }
-            )
-            Spacer(modifier = Modifier.height(12.dp))
-
-            OutlinedTextField(
-                value = selectedDate ?: "Select Visit Date",
-                onValueChange = {},
-                label = { Text("Visit Date") },
-                trailingIcon = {
-                    IconButton(onClick = { showDatePicker = true }) {
-                        Icon(
-                            imageVector = Icons.Default.DateRange,
-                            contentDescription = "Select Visit Date"
-                        )
-                    }
-                },
-                readOnly = true,
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            // Show Date Picker Modal when the state is true
-            if (showDatePicker) {
-                DatePickerModalInput(
-                    onDateSelected = { dateMillis ->
-                        // Convert the selected date millis to a formatted string
-                        selectedDate = dateMillis?.let { convertMillisToDate(it) }.toString()
-                    },
-                    onDismiss = { showDatePicker = false }
-                )
-            }
-
-
-
-
-            Spacer(modifier = Modifier.height(12.dp))
-            CustomDropdownField(
-                label = "Select Slot",
-                options = slots,
-                selectedOption = selectedSlot,
-                onOptionSelected = { selectedSlot = it }
-            )
-
-            // Book Button
-            Spacer(modifier = Modifier.height(24.dp))
-            Button(
-                onClick = { /* Call your booking logic */ },
-                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(56.dp)
-            ) {
-                Text("Book", color = Color.White, fontWeight = FontWeight.Bold)
-            }
+            1 -> ARExperienceScreen() // Replace with actual authentication screen
+            2 -> BookingsScreen() // Replace with actual bookings screen
+            3 -> LogOutScreen() // Replace with actual authentication screen
         }
     }
 }
+
+@Composable
+fun ARExperienceScreen() {
+
+}
+
+@Composable
+fun BookingsScreen(){
+
+}
+
+@Composable
+fun LogOutScreen(){
+
+}
+@Composable
+fun HomeContent(
+    innerPadding: PaddingValues,
+    monumentNames: List<String>,
+
+    monumentName: String,
+    onMonumentSelected: (String) -> Unit,
+    selectedDate: String,
+    onDateSelected: (String) -> Unit,
+    showDatePicker: Boolean,
+    onDatePickerShow: (Boolean) -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .padding(innerPadding)
+            .padding(16.dp)
+            .fillMaxSize(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Top
+    ) {
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // Use Coil for efficient image loading
+        Image(
+            painter = painterResource(id = R.drawable.monumentgraphic),
+            contentDescription = "Colorful Monument Illustration",
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(200.dp)
+                .clip(MaterialTheme.shapes.medium)
+        )
+
+        Text(
+            text = "Experience just a few clicks away...!!",
+            fontSize = 22.sp,
+            fontFamily = FontFamily.Cursive,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.primary
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+        CustomDropdownField(
+            label = "Select Monument",
+            options = monumentNames,
+            selectedOption = monumentName,
+            onOptionSelected = onMonumentSelected
+        )
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        OutlinedTextField(
+            value = selectedDate.ifEmpty { "Select Visit Date" },
+            onValueChange = {},
+            label = { Text("Visit Date") },
+            trailingIcon = {
+                IconButton(onClick = { onDatePickerShow(true) }) {
+                    Icon(
+                        imageVector = Icons.Default.DateRange,
+                        contentDescription = "Select Visit Date"
+                    )
+                }
+            },
+            readOnly = true,
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        if (showDatePicker) {
+            DatePickerModalInput(
+                onDateSelected = { dateMillis ->
+                    onDateSelected(dateMillis?.let { convertMillisToDate(it) }.toString())
+                },
+                onDismiss = { onDatePickerShow(false) }
+            )
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
+        Button(
+            onClick = { /* Call your booking logic */ },
+            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(56.dp)
+        ) {
+            Text("Book", color = Color.White, fontWeight = FontWeight.Bold)
+        }
+
+
+
+    }
+}
+
 // Reusable Custom Dropdown Field
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -506,7 +559,7 @@ fun bookTicketApi(
     return "$monument|$date|$slot|$nationality" // Simulate response
 }
 
-// Generate QR Code (Replace with actual QR library like ZXing)
+
 fun generateQRCode(content: String): Bitmap {
     val size = 512
     return Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
@@ -594,14 +647,14 @@ fun checkAvailabilityApi(monument: String, date: String, slot: String): Boolean 
 
 data class NavItem(val label: String, val icon: ImageVector)
 @Composable
-fun BottomNavigationBar() {
+fun BottomNavigationBar(selectedTabIndex: Int, onTabSelected: (Int) -> Unit) {
     val navItems = listOf(
         NavItem("Home", Icons.Default.Home),
+        NavItem("Experience", Icons.Default.ImageSearch),
         NavItem("Bookings", Icons.Default.Book),
         NavItem("Logout", Icons.Default.Logout)
     )
 
-    var selectedItem by remember { mutableStateOf(0) }
 
     NavigationBar(
         tonalElevation = 8.dp // Adds elevation for better visibility
@@ -617,25 +670,13 @@ fun BottomNavigationBar() {
                 label = {
                     Text(item.label)
                 },
-                selected = selectedItem == index,
-                onClick = { selectedItem = index },
+                selected = selectedTabIndex == index, // Correctly set selected state
+                onClick = { onTabSelected(index) },
                 alwaysShowLabel = true // Always shows the label for each item
             )
         }
     }
-//val selectedItemIndex = selectedItem;
-//
-//    when(selectedItemIndex) {
-//        0->{
-//
-//        }
-//        1->{
-//
-//        }
-//        2->{
-//            AuthenticationScreen()
-//        }
-//    }
+
 }
 
 
@@ -649,11 +690,12 @@ val client = HttpClient(CIO) {
     }
 }
 
-suspend fun performSignup(name: String, email: String, mobile: String, password: String) {
+suspend fun performSignup(name: String, email: String, visitorNationality: String,mobile: String, password: String) {
     val response: HttpResponse = client.post("https://your-api-endpoint/signup") {
         parameter("name", name)
         parameter("email", email)
         parameter("mobile", mobile)
+        parameter("nationality", visitorNationality)
         parameter("password", password)
     }
     println("Signup Response: ${response.status}")
@@ -677,4 +719,7 @@ suspend fun performLogin(email: String, password: String): Boolean {
         true
     }
 }
+
+
+
 

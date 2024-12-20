@@ -86,6 +86,8 @@ dependencies {
     implementation("io.ktor:ktor-client-logging:2.3.3")
     implementation("io.ktor:ktor-client-content-negotiation:2.3.3")
     implementation("io.ktor:ktor-serialization-kotlinx-json:2.3.3")
+    implementation ("com.google.ar:core:1.33.0'")
+
 
     // Jetpack Compose Material 3
 
